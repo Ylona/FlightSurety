@@ -14,18 +14,19 @@ export default class Contract {
         this.passengers = [];
     }
 
-    initialize(callback) {
-        this.web3.eth.getAccounts((error, accts) => {
-           
+    async initialize(callback) {
+        await window.ethereum.enable();
+        await this.web3.eth.getAccounts((error, accts) => {
+
             this.owner = accts[0];
 
             let counter = 1;
-            
-            while(this.airlines.length < 5) {
+
+            while (this.airlines.length < 5) {
                 this.airlines.push(accts[counter++]);
             }
 
-            while(this.passengers.length < 5) {
+            while (this.passengers.length < 5) {
                 this.passengers.push(accts[counter++]);
             }
 
@@ -38,6 +39,25 @@ export default class Contract {
        self.flightSuretyApp.methods
             .isOperational()
             .call({ from: self.owner}, callback);
+    }
+
+    async isAirlineRegistered(callback) {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        let self = this;
+            console.log(accounts[0]);
+            self.flightSuretyApp.methods
+            .isAirlineRegistered(accounts[0])
+            .call({from: accounts[0]}, callback);
+    }
+
+    async registerAirline(newAirline, callback) {
+        let self = this;
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        self.flightSuretyApp.methods
+        .registerAirline(newAirline)
+        .send({ from: accounts[0]}, (error, result) => {
+            callback(error);
+        });
     }
 
     fetchFlightStatus(flight, callback) {

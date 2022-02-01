@@ -32,7 +32,13 @@ contract FlightSuretyApp {
         uint256 updatedTimestamp;        
         address airline;
     }
+
+    struct Airline {
+        bool isRegistered;
+    }
+
     mapping(bytes32 => Flight) private flights;
+    mapping(address => uint256) private airlines;
 
  
     /********************************************************************************************/
@@ -51,6 +57,13 @@ contract FlightSuretyApp {
     {
          // Modify to call data contract's status
         require(true, "Contract is currently not operational");  
+        _;  // All modifiers require an "_" which indicates where the function body will be added
+    }
+
+    modifier requireIsAirline()
+    {
+        // Modify to call data contract's status
+        require(airlines[msg.sender] == 1, "Caller is no registerd airline");
         _;  // All modifiers require an "_" which indicates where the function body will be added
     }
 
@@ -77,6 +90,7 @@ contract FlightSuretyApp {
                                 public 
     {
         contractOwner = msg.sender;
+        airlines[msg.sender] = 1;
     }
 
     /********************************************************************************************/
@@ -101,13 +115,25 @@ contract FlightSuretyApp {
     *
     */   
     function registerAirline
-                            (   
+                            (
+                                address newAirline
                             )
                             external
-                            pure
+                            requireIsOperational
+                            requireIsAirline
                             returns(bool success, uint256 votes)
     {
+        require(airlines[newAirline] != 1 , "Airline is already registered.");
+        airlines[newAirline] = 1;
         return (success, 0);
+    }
+
+    function isAirlineRegistered( address airline)
+    external
+    view
+    returns(bool)
+    {
+        return airlines[airline] == 1;
     }
 
 
@@ -334,4 +360,4 @@ contract FlightSuretyApp {
 
 // endregion
 
-}   
+}
