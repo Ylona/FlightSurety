@@ -24,7 +24,12 @@ contract FlightSuretyApp {
     uint8 private constant STATUS_CODE_LATE_TECHNICAL = 40;
     uint8 private constant STATUS_CODE_LATE_OTHER = 50;
 
+    // Fee to be paid when registering airline
+    uint256 public constant REGISTRATION_FEE_AIRLINE = 10 ether;
+
+
     address private contractOwner;          // Account used to deploy contract
+    FlightSuretyData flightSuretyData;
 
     struct Flight {
         bool isRegistered;
@@ -85,11 +90,11 @@ contract FlightSuretyApp {
     *
     */
     constructor
-                                (
-                                ) 
+                                (address dataContract)
                                 public 
     {
         contractOwner = msg.sender;
+        flightSuretyData = FlightSuretyData(dataContract);
         airlines[msg.sender] = 1;
     }
 
@@ -360,4 +365,7 @@ contract FlightSuretyApp {
 
 // endregion
 
+}
+
+contract FlightSuretyData {
 }
