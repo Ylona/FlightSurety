@@ -36,18 +36,18 @@ contract FlightSuretyData {
     *      The deploying account becomes contractOwner
     */
     constructor
-                                ( address firstAirline
+                                (
                                 ) 
                                 public 
     {
         contractOwner = msg.sender;
-        airlines[firstAirline] = Profile({
+        airlines[msg.sender] = Profile({
         name: "First Airline inc.",
         isAirline: true,
         acceptedByOtherAirlines: true,
         hasPayedFund: false
         });
-        registeredAirlines.push(firstAirline);
+        registeredAirlines.push(msg.sender);
     }
 
     /********************************************************************************************/
@@ -110,9 +110,53 @@ contract FlightSuretyData {
     )
     external
     view
-    returns (Profile)
+    returns (Profile memory)
     {
         return airlines[wallet];
+    }
+
+
+    function getNumberOfRegisteredAirlines
+    (
+    )
+    external
+    view
+    returns (uint256)
+    {
+        return registeredAirlines.length;
+    }
+
+    function getConsendingAirlines
+    (
+    address wallet
+    )
+    external
+    view
+    returns (address[] memory)
+    {
+        return multipartyConsensusNewAirline[wallet];
+    }
+
+    function resetConsendingAirlines(address newAirline ) external {
+        multipartyConsensusNewAirline[newAirline] = new address[](0);
+    }
+
+    function addConsendingAirlines(address newAirline, address existingAirline) external {
+        multipartyConsensusNewAirline[newAirline].push(existingAirline);
+    }
+
+    function updateAirlineAcceptedByOtherAirlines(address wallet, bool hasConsensus)
+    external  returns (bool) {
+        airlines[wallet].acceptedByOtherAirlines = hasConsensus;
+        return checkIfQualifiesForAirline(wallet);
+    }
+
+    function updateAirlineNameAndHasPayedFund(address wallet, string name, bool hasPayedFund)
+    external  {
+        airlines[wallet].name = name;
+        airlines[wallet].hasPayedFund = true;
+
+        checkIfQualifiesForAirline(wallet);
     }
 
     /**
@@ -148,61 +192,13 @@ contract FlightSuretyData {
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
 
-   /**
-    * @dev Add an airline to the registration queue
-    *      Can only be called from FlightSuretyApp contract
-    *
-    */   
-    function registerAirline
-                            (
-                                address wallet
-                            )
-                            external
-                            requireIsAirline
-                            //require multi party consences
-    {
-        require(!airlines[wallet].isAirline, "Airline is already registered.");
-        bool hasConsensus = false;
-        if(registeredAirlines.length < 4 ) {
-            hasConsensus = true;
-        } else {
-            bool isDuplicate = false;
-            for(uint c=0; c<multipartyConsensusNewAirline[wallet].length; c++) {
-                if (multipartyConsensusNewAirline[wallet][c] == msg.sender) {
-                    isDuplicate = true;
-                    break;
-                }
-            }
-            require(!isDuplicate, "Caller has already called this function.");
-            multipartyConsensusNewAirline[wallet].push(msg.sender);
-            if (multipartyConsensusNewAirline[wallet].length >= registeredAirlines.length / 2) {
-                hasConsensus = true;
-                multipartyConsensusNewAirline[wallet] = new address[](0);
-            }
-        }
-
-        airlines[wallet].acceptedByOtherAirlines = hasConsensus;
-
-        checkIfQualifiesForAirline(wallet);
-
-
-    }
-
-    function payRegistrationFee(string name) external payable {
-        require(msg.value == MIN_FUND, "Airline has to pay 10 ether to fund" );
-
-        airlines[msg.sender].name = name;
-        airlines[msg.sender].hasPayedFund = true;
-
-        checkIfQualifiesForAirline(msg.sender);
-
-    }
-
-    function checkIfQualifiesForAirline(address wallet) internal{
+    function checkIfQualifiesForAirline(address wallet) internal returns (bool){
         if(airlines[wallet].acceptedByOtherAirlines && airlines[wallet].hasPayedFund){
             airlines[wallet].isAirline = true;
             registeredAirlines.push(wallet);
+            return true;
         }
+        return false;
     }
 
 
