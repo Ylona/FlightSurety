@@ -2,35 +2,117 @@
 <html lang="en">
 
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>FlightSurety</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>FlightSurety</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/css/bootstrap.min.css"
+        rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
 
 <body>
 
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-        <a class="navbar-brand" href="#">FlightSurety</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault"
+  <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+    <a class="navbar-brand" href="#">FlightSurety</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault"
             aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </nav>
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav mr-auto">
+        <li class="nav-item active" id="airlines-tab">
+          <a class="nav-link" href="#">Airlines</a>
+        </li>
+        <li class="nav-item" id="flights-tab">
+          <a class="nav-link" href="#">Flights</a>
+        </li>
+        <li class="nav-item" id="passenger-tab">
+          <a class="nav-link" href="#">Passengers Insurance</a>
+        </li>
+      </ul>
+    </div>
+  </nav>
 
-    <main class="container">
+  <main class="container">
+    <div id="airlines-content" style="display: block">
+      <div class="form-row">
+        <div class="col-md-3">
+          <label class="my-1 mr-2" >Nominate potential airline</label>
+        </div>
+        <div class="col-md-5">
+          <input type="text" class="form-control" id="nomidate-address">
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-primary my-1" id="nominate">Nominate</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="col-md-3">
+          <label class="my-1 mr-2" >Potential airlines</label>
+        </div>
+        <div class="col-md-5">
+          <select class="custom-select my-1 mr-sm-2" id="potential-airline"></select>
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-primary my-1" id="vote">Vote</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="col-md-3">
+          <label class="my-1 mr-2" >Apply for Airline</label>
+        </div>
+        <div class="col-md-5">
+          <input type="text" class="form-control" id="airline-name">
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-primary my-1" id="fund">Fund (10 eth)</button>
+        </div>
+      </div>
 
-        <div id="display-wrapper" class="top-20">
-        </div>
-        <div class="row top-20">
-            <label class="form">Flight</label> <input type="text" id="flight-number"> <btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>
-        </div>
-        <div class="row top-20">
-            <label class="form">Flight</label> <input type="text" id="new-airline-address"> <btn class="btn btn-primary" id="submit-new-airline">Submit to Oracles</btn>
-        </div>
-    </main>
+      <div id="display-airline-table"></div>
+      <div id="display-flights-table"></div>
 
+      <!--            <div id="display-wrapper" class="top-20">-->
+      <!--            </div>-->
+      <!--            <div class="row top-20">-->
+      <!--                <label class="form">Register Flight</label> <input type="text" id="flight-name"> <btn class="btn btn-primary" id="submit-flight">Submit flight</btn>-->
+      <!--            </div>-->
+      <!--            <div class="row top-20">-->
+      <!--                <label class="form">Flight</label> <input type="text" id="flight-number"> <btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>-->
+      <!--            </div>-->
+      <!--            <div class="row top-20">-->
+      <!--                <label class="form">Flight</label> <input type="text" id="new-airline-address"> <btn class="btn btn-primary" id="submit-new-airline">Submit to Oracles</btn>-->
+      <!--            </div>-->
+    </div>
+    <div id="flights-content" style="display: none"> This is the flights tab
+      <div class="row top-20">
+        <label class="form">Register Flight</label> <input type="text" id="flight-name">
+        <btn class="btn btn-primary" id="submit-flight">Submit flight</btn>
+      </div>
+      <h2 class="center">Flights</h2>
+        <table class="table">
+          <thead>
+          <tr>
+            <th scope="col">Flight Number</th>
+            <th scope="col">Departure time</th>
+            <th scope="col">Status</th>
+            <th scope="col"></th>
+          </tr>
+          </thead>
+          <tbody id="flight-rows">
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div id="passenger-content" style="display: none"> This is the flights tab</div>
+
+
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"></script>
 
 </body>
 

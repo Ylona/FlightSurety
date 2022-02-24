@@ -1,13 +1,28 @@
 import FlightSuretyApp from '../../build/contracts/FlightSuretyApp.json';
+import FlightSuretyData from '../../build/contracts/FlightSuretyData.json';
 import Config from './config.json';
 import Web3 from 'web3';
+const TruffleContract = require("@truffle/contract");
+
 
 export default class Contract {
     constructor(network, callback) {
 
         let config = Config[network];
-        this.web3 = new Web3(new Web3.providers.HttpProvider(config.url));
-        this.flightSuretyApp = new this.web3.eth.Contract(FlightSuretyApp.abi, config.appAddress);
+        // this.web3 = new Web3(new Web3.providers.HttpProvider(config.url));
+        // this.flightSuretyApp = new this.web3.eth.Contract(FlightSuretyApp.abi, config.appAddress);
+        // this.flightSuretyData= new this.web3.eth.Contract(FlightSuretyData.abi, config.dataAddress);
+
+        let provider = new Web3.providers.HttpProvider(config.url);
+
+        this.web3 = new Web3(provider);
+
+        this.flightSuretyApp = TruffleContract(FlightSuretyApp);
+        this.flightSuretyApp.setProvider(provider);
+
+        this.flightSuretyData = TruffleContract(FlightSuretyData);
+        this.flightSuretyData.setProvider(provider);
+
         this.initialize(callback);
         this.owner = null;
         this.airlines = [];
@@ -34,43 +49,60 @@ export default class Contract {
         });
     }
 
-    isOperational(callback) {
-       let self = this;
-       self.flightSuretyApp.methods
-            .isOperational()
-            .call({ from: self.owner}, callback);
+    async getContractInstance(){
+        return await this.flightSuretyApp.deployed();
     }
 
-    async isAirlineRegistered(callback) {
+    async getDataContractInstance(){
+        return await this.flightSuretyData.deployed();
+    }
+
+    async isOperational() {
+        let instance = await this.getContractInstance();
+        return await instance.isOperational({from: this.owner});
+    }
+
+    async isAirlineRegistered() {
+        let instance = await this.getContractInstance();
+        return await instance.isAirlineRegistered({from: this.owner});
+    }
+
+    async registerAirline(newAirline) {
+        let instance = await this.getContractInstance();
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        let self = this;
-            console.log(accounts[0]);
-            self.flightSuretyApp.methods
-            .isAirlineRegistered(accounts[0])
-            .call({from: accounts[0]}, callback);
+        let caller = accounts[0];
+        return await instance.registerAirline(newAirline, {from: caller});
     }
 
-    async registerAirline(newAirline, callback) {
-        let self = this;
+    async payRegistrationFee(name) {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        self.flightSuretyApp.methods
-        .registerAirline(newAirline)
-        .send({ from: accounts[0]}, (error, result) => {
-            callback(error);
-        });
+        let caller = accounts[0];
+        let instance = await this.getContractInstance();
+        let fundPrice = this.web3.utils.toWei('10', "ether");
+        return await instance.payRegistrationFee(name, {from: caller, value: fundPrice});
     }
 
-    fetchFlightStatus(flight, callback) {
-        let self = this;
-        let payload = {
-            airline: self.airlines[0],
-            flight: flight,
-            timestamp: Math.floor(Date.now() / 1000)
-        } 
-        self.flightSuretyApp.methods
-            .fetchFlightStatus(payload.airline, payload.flight, payload.timestamp)
-            .send({ from: self.owner}, (error, result) => {
-                callback(error, payload);
-            });
+    async getAllAirline() {
+        let instance = await this.getDataContractInstance();
+        return await instance.getAllAirline();
+    }
+
+    async getAllFlights() {
+        let instance = await this.getDataContractInstance();
+        return await instance.getAllFlights();
+    }
+
+    async registerFlight(name) {
+        let instance = await this.getContractInstance();
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        let caller = accounts[0];
+        return await instance.registerFlight(name, 1644222794, {from: caller});
+    }
+
+    async fetchFlightStatus(airline, flight, timestamp) {
+        let instance = await this.getContractInstance();
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        let caller = accounts[0];
+        return await instance.fetchFlightStatus(airline, flight, timestamp, {from: caller});
     }
 }

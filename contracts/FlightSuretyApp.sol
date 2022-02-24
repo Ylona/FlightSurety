@@ -1,5 +1,4 @@
 pragma solidity ^0.4.25;
-pragma experimental ABIEncoderV2;
 
 // It's important to avoid vulnerabilities due to numeric overflow bugs
 // OpenZeppelin's SafeMath library, when used correctly, protects agains such bugs
@@ -37,8 +36,10 @@ contract FlightSuretyApp {
 
     address private contractOwner;          // Account used to deploy contract
     FlightSuretyData flightSuretyData;
+    address public dataContractAddr;
 
     struct Flight {
+        string name;
         bool isRegistered;
         uint8 statusCode;
         uint256 updatedTimestamp;
@@ -47,6 +48,17 @@ contract FlightSuretyApp {
 
 
     mapping(bytes32 => Flight) private flights;
+    bytes32[] private flightList;
+
+    /********************************************************************************************/
+    /*                                       EVENTS                                             */
+    /********************************************************************************************/
+
+    event AirlineRegistered(address addr, uint256 votes);
+    event AirlineFunded(address airline, uint256 amount);
+    event FlightRegistered(bytes32 flightKey);
+    event PassengerPurchasedInsurance(address passenger, bytes32 flightKey);
+
 
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
@@ -99,6 +111,7 @@ contract FlightSuretyApp {
     */
     constructor(address dataContract) public {
         contractOwner = msg.sender;
+        dataContractAddr = dataContract;
         flightSuretyData = FlightSuretyData(dataContract);
     }
 
@@ -120,9 +133,11 @@ contract FlightSuretyApp {
     /********************************************************************************************/
 
     function payRegistrationFee(string name) external payable {
-        require(msg.value == REGISTRATION_FEE_AIRLINE, "Airline has to pay 10 ether to fund" );
+        require(msg.value == REGISTRATION_FEE_AIRLINE, "Airline has to pay 10 ether to fund");
 
+        dataContractAddr.transfer(msg.value);
         flightSuretyData.updateAirlineNameAndHasPayedFund(msg.sender, name, true);
+        emit AirlineFunded(msg.sender, msg.value);
     }
 
 
@@ -130,13 +145,9 @@ contract FlightSuretyApp {
      * @dev Add an airline to the registration queue
     *
     */
-    function registerAirline
-    (
-        address newAirline
-    )
-    external
-        requireIsOperational
-        requireAirline
+    function registerAirline(address newAirline) external
+    requireIsOperational
+    requireAirline
     returns (bool success, uint256 votes)
     {
         require(!flightSuretyData.isAirline(newAirline), "Airline is already registered.");
@@ -165,29 +176,27 @@ contract FlightSuretyApp {
 
         bool isAirline = flightSuretyData.updateAirlineAcceptedByOtherAirlines(newAirline, hasConsensus);
 
+        if (isAirline) {
+            emit AirlineRegistered(newAirline, consendingAirlines.length + 1);
+        }
+
         return (isAirline, consendingAirlines.length + 1);
     }
 
-        function isAirlineRegistered(address airline)
-        external
-        view
-        returns (bool)
-        {
-            return true;
-        }
-
+    function isAirlineRegistered(address airline) external view returns (bool)
+    {
+        return flightSuretyData.isAirline(airline);
+    }
 
     /**
      * @dev Register a future flight for insuring.
     *
     */
-    function registerFlight
-    (
-    )
-    external
-    pure
+    function registerFlight(string flightName, uint256 flightTimestamp) external requireIsOperational requireAirline
     {
 
+        bytes32 key = flightSuretyData.updateFlight(flightName, flightTimestamp, msg.sender);
+        emit FlightRegistered(key);
     }
 
     /**
@@ -202,8 +211,28 @@ contract FlightSuretyApp {
         uint8 statusCode
     )
     internal
-    pure
     {
+        flightSuretyData.updateFlightStatus(flight, timestamp, msg.sender, statusCode);
+
+    }
+
+    // Query the status of any flight
+    function viewFlightStatus
+    (
+        string airline,
+        string flightName,
+        uint256 flightTimestamp
+    )
+    external
+    view
+    returns(uint8)
+    {
+        bytes32 flightKey = keccak256(abi.encodePacked(airline, flightName, flightTimestamp));
+
+        require(flights[flightKey].isRegistered, "Flight is not registered");
+
+        bytes32 key = keccak256(abi.encodePacked(airline, flightName, flightTimestamp));
+        return flights[key].statusCode;
     }
 
 
@@ -291,13 +320,7 @@ contract FlightSuretyApp {
         });
     }
 
-    function getMyIndexes
-    (
-    )
-    view
-    external
-    returns (uint8[3])
-    {
+    function getMyIndexes() view external returns (uint8[3]){
         require(oracles[msg.sender].isRegistered, "Not registered as an oracle");
 
         return oracles[msg.sender].indexes;
@@ -424,5 +447,9 @@ contract FlightSuretyData {
     function updateAirlineAcceptedByOtherAirlines(address wallet, bool hasConsensus) external returns (bool);
 
     function updateAirlineNameAndHasPayedFund(address wallet, string name, bool hasPayedFund) external;
+
+    function updateFlight(string flightName, uint256 flightTimestamp, address airline) external returns (bytes32);
+
+    function updateFlightStatus(string flightName, uint256 flightTimestamp, address airline, uint8 status);
 
 }

@@ -13,6 +13,7 @@ contract FlightSuretyData {
 
     struct Profile {
         string name;
+        address wallet;
         bool isAirline;
         bool acceptedByOtherAirlines;
         bool hasPayedFund;
@@ -22,8 +23,20 @@ contract FlightSuretyData {
     bool private operational = true;                                    // Blocks all state changes throughout the contract if false
     mapping(address => Profile) airlines;      // Mapping for storing airlines
     address[] registeredAirlines = new address[](0);
+    address[] allAirlines = new address[](0);
     mapping(address => address[]) multipartyConsensusNewAirline;         // Mapping from a potential airline to airlines that gave consensus
     uint256 public constant MIN_FUND = 10 ether; //minimum fund required to participate in contract
+
+    struct Flight {
+        string name;
+        bool isRegistered;
+        uint8 statusCode;
+        uint256 updatedTimestamp;
+        address airline;
+    }
+
+    mapping(bytes32 => Flight) private flights;
+    bytes32[] private flightList;
 
 
     /********************************************************************************************/
@@ -36,18 +49,20 @@ contract FlightSuretyData {
     *      The deploying account becomes contractOwner
     */
     constructor
-                                (
-                                ) 
-                                public 
+    (
+    )
+    public
     {
         contractOwner = msg.sender;
         airlines[msg.sender] = Profile({
-        name: "First Airline inc.",
-        isAirline: true,
-        acceptedByOtherAirlines: true,
-        hasPayedFund: false
+        name : "First Airline inc.",
+        isAirline : true,
+        wallet : msg.sender,
+        acceptedByOtherAirlines : true,
+        hasPayedFund : false
         });
         registeredAirlines.push(msg.sender);
+        allAirlines.push(msg.sender);
     }
 
     /********************************************************************************************/
@@ -62,10 +77,11 @@ contract FlightSuretyData {
     *      This is used on all state changing functions to pause the contract in 
     *      the event there is an issue that needs to be fixed
     */
-    modifier requireIsOperational() 
+    modifier requireIsOperational()
     {
         require(operational, "Contract is currently not operational");
-        _;  // All modifiers require an "_" which indicates where the function body will be added
+        _;
+        // All modifiers require an "_" which indicates where the function body will be added
     }
 
     /**
@@ -81,7 +97,8 @@ contract FlightSuretyData {
     {
         // Modify to call data contract's status
         require(airlines[msg.sender].isAirline, "Caller is no registered airline");
-        _;  // All modifiers require an "_" which indicates where the function body will be added
+        _;
+        // All modifiers require an "_" which indicates where the function body will be added
     }
 
     /********************************************************************************************/
@@ -115,6 +132,30 @@ contract FlightSuretyData {
         return airlines[wallet];
     }
 
+    function getAllAirline() external view returns (Profile[] memory)
+    {
+        uint256 index = 0;
+        Profile[] memory airlineProfile = new Profile[](allAirlines.length);
+        while (index < allAirlines.length) {
+            address key = allAirlines[index];
+            airlineProfile[index] = airlines[key];
+            index = index + 1;
+        }
+        return airlineProfile;
+    }
+
+    function getAllFlights() external view returns (Flight[] memory)
+    {
+        uint256 index = 0;
+        Flight[] memory allFlights = new Flight[](flightList.length);
+        while (index < flightList.length) {
+            bytes32 key = flightList[index];
+            allFlights[index] = flights[key];
+            index = index + 1;
+        }
+        return allFlights;
+    }
+
 
     function getNumberOfRegisteredAirlines
     (
@@ -128,7 +169,7 @@ contract FlightSuretyData {
 
     function getConsendingAirlines
     (
-    address wallet
+        address wallet
     )
     external
     view
@@ -137,7 +178,7 @@ contract FlightSuretyData {
         return multipartyConsensusNewAirline[wallet];
     }
 
-    function resetConsendingAirlines(address newAirline ) external {
+    function resetConsendingAirlines(address newAirline) external {
         multipartyConsensusNewAirline[newAirline] = new address[](0);
     }
 
@@ -146,28 +187,53 @@ contract FlightSuretyData {
     }
 
     function updateAirlineAcceptedByOtherAirlines(address wallet, bool hasConsensus)
-    external  returns (bool) {
+    external returns (bool) {
         airlines[wallet].acceptedByOtherAirlines = hasConsensus;
+        airlines[wallet].wallet = wallet;
         return checkIfQualifiesForAirline(wallet);
     }
 
     function updateAirlineNameAndHasPayedFund(address wallet, string name, bool hasPayedFund)
-    external  {
+    external {
         airlines[wallet].name = name;
+        airlines[wallet].wallet = wallet;
         airlines[wallet].hasPayedFund = true;
 
         checkIfQualifiesForAirline(wallet);
+    }
+
+    function updateFlightStatus(string flightName, uint256 flightTimestamp, address airline, uint8 status)
+    external {
+        bytes32 key = keccak256(abi.encodePacked(airline, flightName, flightTimestamp));
+        require(flights[key].isRegistered, "Flight has to be registered");
+        flights[key].statusCode = status;
+
+    }
+
+    function updateFlight(string flightName, uint256 flightTimestamp, address airline)
+    external returns (bytes32) {
+        bytes32 key = keccak256(abi.encodePacked(airline, flightName, flightTimestamp));
+        require(!flights[key].isRegistered, "Flight already registered");
+        flights[key] = Flight({
+            name : flightName,
+            isRegistered : true,
+            statusCode : 0,
+            updatedTimestamp : flightTimestamp,
+            airline : airline
+        });
+        flightList.push(key);
+        return key;
     }
 
     /**
     * @dev Get operating status of contract
     *
     * @return A bool that is the current operating status
-    */      
-    function isOperational() 
-                            public 
-                            view 
-                            returns(bool) 
+    */
+    function isOperational()
+    public
+    view
+    returns (bool)
     {
         return operational;
     }
@@ -177,13 +243,13 @@ contract FlightSuretyData {
     * @dev Sets contract operations on/off
     *
     * When operational mode is disabled, all write transactions except for this one will fail
-    */    
+    */
     function setOperatingStatus
-                            (
-                                bool mode
-                            ) 
-                            external
-                            requireContractOwner 
+    (
+        bool mode
+    )
+    external
+    requireContractOwner
     {
         operational = mode;
     }
@@ -193,7 +259,18 @@ contract FlightSuretyData {
     /********************************************************************************************/
 
     function checkIfQualifiesForAirline(address wallet) internal returns (bool){
-        if(airlines[wallet].acceptedByOtherAirlines && airlines[wallet].hasPayedFund){
+        bool doesListContainElement = false;
+
+        for (uint i = 0; i < allAirlines.length; i++) {
+            if (wallet == allAirlines[i]) {
+                doesListContainElement = true;
+            }
+        }
+        if (!doesListContainElement) {
+            allAirlines.push(wallet);
+        }
+
+        if (airlines[wallet].acceptedByOtherAirlines && airlines[wallet].hasPayedFund) {
             airlines[wallet].isAirline = true;
             registeredAirlines.push(wallet);
             return true;
@@ -202,15 +279,15 @@ contract FlightSuretyData {
     }
 
 
-   /**
-    * @dev Buy insurance for a flight
+    /**
+     * @dev Buy insurance for a flight
     *
-    */   
+    */
     function buy
-                            (                             
-                            )
-                            external
-                            payable
+    (
+    )
+    external
+    payable
     {
 
     }
@@ -219,53 +296,53 @@ contract FlightSuretyData {
      *  @dev Credits payouts to insurees
     */
     function creditInsurees
-                                (
-                                )
-                                external
-                                pure
+    (
+    )
+    external
+    pure
     {
     }
-    
+
 
     /**
      *  @dev Transfers eligible payout funds to insuree
      *
     */
     function pay
-                            (
-                            )
-                            external
-                            pure
+    (
+    )
+    external
+    pure
     {
     }
 
-   /**
-    * @dev Initial funding for the insurance. Unless there are too many delayed flights
+    /**
+     * @dev Initial funding for the insurance. Unless there are too many delayed flights
     *      resulting in insurance payouts, the contract should be self-sustaining
     *
-    */   
+    */
     function fund
-                            (   
-                            )
-                            public
-                            payable
+    (
+    )
+    public
+    payable
     {
     }
 
     function getFlightKey
-                        (
-                            address airline,
-                            string memory flight,
-                            uint256 timestamp
-                        )
-                        pure
-                        internal
-                        returns(bytes32) 
+    (
+        address airline,
+        string memory flight,
+        uint256 timestamp
+    )
+    pure
+    internal
+    returns (bytes32)
     {
         return keccak256(abi.encodePacked(airline, flight, timestamp));
     }
 
-    function authorizeCaller( address caller) external pure {
+    function authorizeCaller(address caller) external pure {
 
     }
 
@@ -273,9 +350,9 @@ contract FlightSuretyData {
     * @dev Fallback function for funding smart contract.
     *
     */
-    function() 
-                            external 
-                            payable 
+    function()
+    external
+    payable
     {
         fund();
     }

@@ -5,7 +5,7 @@ body {
 }
 
 .container {
-    margin-top: 400px;
+    margin-top: 40px;
     background-color: #000;
     opacity: 0.9;
     color: #fff;
@@ -39,4 +39,15 @@ label.form {
 }
 input {
     margin-right: 30px;
+}
+
+.tabcontent {
+    display: none;
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-top: none;
+}
+
+.center {
+    text-align: center;
 }
