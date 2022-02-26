@@ -76,7 +76,7 @@ flightSuretyApp.events.OracleRequest({
         === index || oracleIndexDict[oracle][2] === index) {
       let status = Math.floor(Math.random() * 6) * 10;
       flightSuretyApp.methods
-      .submitOracleResponse(index, airline, flight, timestamp, 20).send({
+      .submitOracleResponse(index, airline, flight, timestamp, status).send({
         "from": oracle,
         "gas": 5000000,
         "gasPrice": 100000000000
