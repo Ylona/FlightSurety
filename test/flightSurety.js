@@ -126,6 +126,7 @@ contract('Flight Surety Tests', async (accounts) => {
           await config.flightSuretyApp.payRegistrationFee("Airline 3",
               {from: newAirline, value: funding});
 
+
         } catch (e) {
           console.log(e);
         }
@@ -221,59 +222,47 @@ contract('Flight Surety Tests', async (accounts) => {
 
   });
 
-  it('can register oracles', async () => {
+  it('Passenger can purchange insurance', async () => {
 
-    // ARRANGE
-    let fee = await config.flightSuretyApp.REGISTRATION_FEE.call();
+    let amount = web3.utils.toWei("1", "ether");
+
+    await config.flightSuretyData.buy(config.firstAirline, "EA0001", 1644222794, {value: amount});
+
+    let key = await config.flightSuretyData.getFlightKey(config.firstAirline, "EA0001", 1644222794);
+
+    let insurenceAmount = await config.flightSuretyData.getPassengerInsurance(accounts[0], key);
+    let credit =await config.flightSuretyData.getPassengerCredit(accounts[0]);
+
+    assert.equal(insurenceAmount, amount, "Amount should be registerd as insurance");
+    assert.equal(credit, 0, "No credits yet");
+
+    await config.flightSuretyData.creditInsurees(config.firstAirline, "EA0001", 1644222794, 2);
+
+    insurenceAmount = await config.flightSuretyData.getPassengerInsurance(accounts[0], key);
+    credit = await config.flightSuretyData.getPassengerCredit(accounts[0]);
+
+    assert.equal(insurenceAmount, 0, "Amount is transferd to credits");
+    assert.equal(credit > amount, true, "Credits should be 1.5 amount");
+    let before = await web3.eth.getBalance(accounts[0]);
+    await config.flightSuretyData.pay();
+    credit = await config.flightSuretyData.getPassengerCredit(accounts[0]);
+    let after = await web3.eth.getBalance(accounts[0]);
+    assert.equal(credit, 0, "Thirs flight should not be registered");
+    assert.equal(before < after, true, "Should be more money after payout");
 
 
-    // ACT
-    for(let a=20; a<20+TEST_ORACLES_COUNT; a++) {
-      await config.flightSuretyApp.registerOracle({ from: accounts[a], value: fee });
-      let result = await config.flightSuretyApp.getMyIndexes.call({from: accounts[a]});
-    }
   });
 
-  it('can request flight status', async () => {
+  it('Passenger can not purchace insurance twice for same flight', async () => {
 
-    // ARRANGE
-    let flight = 'ND1309'; // Course number
-    let timestamp = Math.floor(Date.now() / 1000);
-
-    // Submit a request for oracles to get status information for a flight
-    await config.flightSuretyApp.registerFlight(flight, timestamp, {from: config.firstAirline});
-    await config.flightSuretyApp.fetchFlightStatus(config.firstAirline, flight, timestamp);
-
-    // ACT
-
-    // Since the Index assigned to each test account is opaque by design
-    // loop through all the accounts and for each account, all its Indexes (indices?)
-    // and submit a response. The contract will reject a submission if it was
-    // not requested so while sub-optimal, it's a good test of that feature
-    for(let a=20; a<20+TEST_ORACLES_COUNT; a++) {
-
-      // Get oracle information
-      let oracleIndexes = await config.flightSuretyApp.getMyIndexes.call({ from: accounts[a]});
-
-      console.log(`Oracle Registered: ${oracleIndexes[0]}, ${oracleIndexes[1]}, ${oracleIndexes[2]}`);
-
-      for(let idx=0;idx<3;idx++) {
-
-        try {
-          // Submit a response...it will only be accepted if there is an Index match
-          await config.flightSuretyApp.submitOracleResponse(oracleIndexes[idx], config.firstAirline, flight, timestamp, STATUS_CODE_ON_TIME, { from: accounts[a] });
-          console.log("worked");
-        }
-        catch(e) {
-          // Enable this when debugging
-          console.log(e);
-          console.log('\nError', idx, oracleIndexes[idx].toNumber(), flight, timestamp);
-        }
-
-      }
-    }
-    console.log(await config.flightSuretyData.getAllFlights());
-
+    await config.flightSuretyData.buy(config.firstAirline, "EA0001", 1644222794, {value: 100});
+    accessDenied = false;
+    try{
+      await config.flightSuretyData.buy(config.firstAirline, "EA0001", 1644222794, {value: 100});
+    } catch (e) {
+    accessDenied = true;
+  }
+    assert.equal(accessDenied, true, "Can not purchase insurence twice");
 
   });
 

@@ -105,7 +105,24 @@
         </table>
       </div>
     </div>
-    <div id="passenger-content" style="display: none"> This is the flights tab</div>
+    <div id="passenger-content" style="display: none">
+      <div class="form-row">
+        <div class="col-md-2">
+          <label class="my-1 mr-2" >Insurance</label>
+        </div>
+        <div class="col-md-5">
+          <select class="custom-select my-1 mr-sm-2" id="insurance-flights"></select>
+        </div>
+        <div class="col-md-2">
+          <input type="text" class="form-control my-1 mr-sm-2" id="amount">
+        </div>
+        <div class="col-md-3">
+          <button type="submit" class="btn btn-primary my-1" id="buy">Purchase</button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary my-1" id="payout">Payout insurance after delay</button>
+    </div>
 
 
   </main>

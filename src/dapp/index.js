@@ -60,15 +60,26 @@ import './flightsurety.css';
             updateUI(contract)
         })
 
+        DOM.elid('payout').addEventListener('click', () => {
+            // Write transaction
+            contract.pay().then(function (result) {
+            })
+            updateUI(contract)
+        })
+
+        DOM.elid('buy').addEventListener('click', () => {
+            // Write transaction
+            let key = DOM.elid('insurance-flights').value;
+            let value = DOM.elid('amount').value;
+            contract.buy(key, value).then(function (result) {
+            })
+            updateUI(contract)
+        })
+
         // Read transaction
         contract.isOperational((error, result) => {
             console.log(error,result);
             display('Operational Status', 'Check if contract is operational', [ { label: 'Operational Status', error: error, value: result} ]);
-        });
-
-        contract.isAirlineRegistered((error, result) => {
-            console.log(error,result);
-            display('Logged in as airline', 'Check if user is airline', [ { label: 'is Airline', error: error, value: result} ]);
         });
 
         updateUI(contract)
@@ -81,17 +92,6 @@ import './flightsurety.css';
                 display('Flights', 'Flight registerd', [ { label: 'Flight', error: error, value: result} ]);
             });
         })
-    
-
-        // // User-submitted transaction
-        // DOM.elid('submit-oracle').addEventListener('click', () => {
-        //     let flight = DOM.elid('flight-number').value;
-        //     // Write transaction
-        //     contract.fetchFlightStatus(flight, (error, result) => {
-        //         display('Oracles', 'Trigger oracles', [ { label: 'Fetch Flight Status', error: error, value: result.flight + ' ' + result.timestamp} ]);
-        //     });
-        // })
-
 
 
     });
@@ -109,6 +109,7 @@ function updateUI(contract) {
         console.log("flights");
         console.log(result);
         displayFlightTable("Flights", result, contract);
+        displayFlightsSelector("Flights", result);
     });
 }
 
@@ -124,6 +125,19 @@ function display(title, description, results) {
         section.appendChild(row);
     })
     displayDiv.append(section);
+}
+
+function displayFlightsSelector(title, results){
+    let dropDownList = DOM.elid("insurance-flights");
+    results.map((result) => {
+            let el = document.createElement("option");
+            let name = result["name"];
+            let updateTimestamp = result["updatedTimestamp"]
+            let airline = result["airline"]
+            el.text = `${name} - ${updateTimestamp} (${airline})`;
+            el.value = `${airline}:${name}:${updateTimestamp}`;
+            dropDownList.appendChild(el);
+    })
 }
 
 function displayFlightTable(title, results, contract) {
@@ -142,12 +156,6 @@ function displayFlightTable(title, results, contract) {
         },"Get flight status");
         row.appendChild(DOM.th({scope :'col'}, button));
 
-        // console.log(result);
-        // let row = section.appendChild(DOM.div({className:'row'}));
-        // row.appendChild(DOM.div({className: 'col-sm-2 field'}, result["name"]));
-        // row.appendChild(DOM.div({className: 'col-sm-5 field'}, result["updatedTimestamp"]));
-        // row.appendChild(DOM.div({className: 'col-sm-1 field'}, String(result["statusCode"])));
-        // row.appendChild(DOM.div({className: 'col-sm-1 field'}, "test"));
         rows.appendChild(row);
 
         DOM.elid(result["name"]).addEventListener('click', () => {

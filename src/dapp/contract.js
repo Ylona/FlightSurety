@@ -62,9 +62,9 @@ export default class Contract {
         return await instance.isOperational({from: this.owner});
     }
 
-    async isAirlineRegistered() {
+    async isAirlineRegistered(airline) {
         let instance = await this.getContractInstance();
-        return await instance.isAirlineRegistered({from: this.owner});
+        return await instance.isAirlineRegistered(airline,{from: this.owner});
     }
 
     async registerAirline(newAirline) {
@@ -80,6 +80,27 @@ export default class Contract {
         let instance = await this.getContractInstance();
         let fundPrice = this.web3.utils.toWei('10', "ether");
         return await instance.payRegistrationFee(name, {from: caller, value: fundPrice});
+    }
+
+    async pay() {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        let caller = accounts[0];
+        let instance = await this.getDataContractInstance();
+        return await instance.pay({from: caller});
+    }
+
+    async buy(key, value) {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        let caller = accounts[0];
+        let split = key.split(':');
+        console.log(split[0]);
+        console.log(split[1]);
+        console.log(split[2]);
+
+        let instance = await this.getDataContractInstance();
+        let valueInEther = this.web3.utils.toWei(value, "ether");
+        console.log(valueInEther);
+        return await instance.buy(split[0], split[1], split[2], {from: caller, value:valueInEther});
     }
 
     async getAllAirline() {

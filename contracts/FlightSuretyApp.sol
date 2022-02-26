@@ -1,4 +1,5 @@
 pragma solidity ^0.4.25;
+pragma experimental ABIEncoderV2;
 
 // It's important to avoid vulnerabilities due to numeric overflow bugs
 // OpenZeppelin's SafeMath library, when used correctly, protects agains such bugs
@@ -121,18 +122,17 @@ contract FlightSuretyApp {
 
     function isOperational()
     public
-    pure
+    view
     returns (bool)
     {
-        return true;
-        // Modify to call data contract's status
+        return flightSuretyData.isOperational();
     }
 
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
 
-    function payRegistrationFee(string name) external payable {
+    function payRegistrationFee(string name) external requireIsOperational payable {
         require(msg.value == REGISTRATION_FEE_AIRLINE, "Airline has to pay 10 ether to fund");
 
         dataContractAddr.transfer(msg.value);
@@ -183,7 +183,7 @@ contract FlightSuretyApp {
         return (isAirline, consendingAirlines.length + 1);
     }
 
-    function isAirlineRegistered(address airline) external view returns (bool)
+    function isAirlineRegistered(address airline) external requireIsOperational view returns (bool)
     {
         return flightSuretyData.isAirline(airline);
     }
@@ -211,8 +211,13 @@ contract FlightSuretyApp {
         uint8 statusCode
     )
     internal
+    requireIsOperational
     {
-        flightSuretyData.updateFlightStatus(flight, timestamp, msg.sender, statusCode);
+        flightSuretyData.updateFlightStatus(flight, timestamp, airline, statusCode);
+
+        if(statusCode == STATUS_CODE_LATE_AIRLINE){
+            flightSuretyData.creditInsurees(airline, flight, timestamp, 1);
+        }
 
     }
 
@@ -225,6 +230,7 @@ contract FlightSuretyApp {
     )
     external
     view
+    requireIsOperational
     returns(uint8)
     {
         bytes32 flightKey = keccak256(abi.encodePacked(airline, flightName, flightTimestamp));
@@ -235,7 +241,6 @@ contract FlightSuretyApp {
         return flights[key].statusCode;
     }
 
-
     // Generate a request for oracles to fetch flight information
     function fetchFlightStatus
     (
@@ -244,14 +249,15 @@ contract FlightSuretyApp {
         uint256 timestamp
     )
     external
+    requireIsOperational
     {
         uint8 index = getRandomIndex(msg.sender);
 
         // Generate a unique key for storing the request
         bytes32 key = keccak256(abi.encodePacked(index, airline, flight, timestamp));
         oracleResponses[key] = ResponseInfo({
-        requester : msg.sender,
-        isOpen : true
+        requester: msg.sender,
+        isOpen: true
         });
 
         emit OracleRequest(index, airline, flight, timestamp);
@@ -315,18 +321,22 @@ contract FlightSuretyApp {
         uint8[3] memory indexes = generateIndexes(msg.sender);
 
         oracles[msg.sender] = Oracle({
-        isRegistered : true,
-        indexes : indexes
+        isRegistered: true,
+        indexes: indexes
         });
     }
 
-    function getMyIndexes() view external returns (uint8[3]){
+    function getMyIndexes
+    (
+    )
+    view
+    external
+    returns(uint8[3])
+    {
         require(oracles[msg.sender].isRegistered, "Not registered as an oracle");
 
         return oracles[msg.sender].indexes;
     }
-
-
 
 
     // Called by oracle when a response is available to an outstanding request
@@ -372,7 +382,7 @@ contract FlightSuretyApp {
     )
     pure
     internal
-    returns (bytes32)
+    returns(bytes32)
     {
         return keccak256(abi.encodePacked(airline, flight, timestamp));
     }
@@ -383,18 +393,18 @@ contract FlightSuretyApp {
         address account
     )
     internal
-    returns (uint8[3])
+    returns(uint8[3])
     {
         uint8[3] memory indexes;
         indexes[0] = getRandomIndex(account);
 
         indexes[1] = indexes[0];
-        while (indexes[1] == indexes[0]) {
+        while(indexes[1] == indexes[0]) {
             indexes[1] = getRandomIndex(account);
         }
 
         indexes[2] = indexes[1];
-        while ((indexes[2] == indexes[0]) || (indexes[2] == indexes[1])) {
+        while((indexes[2] == indexes[0]) || (indexes[2] == indexes[1])) {
             indexes[2] = getRandomIndex(account);
         }
 
@@ -415,8 +425,7 @@ contract FlightSuretyApp {
         uint8 random = uint8(uint256(keccak256(abi.encodePacked(blockhash(block.number - nonce++), account))) % maxValue);
 
         if (nonce > 250) {
-            nonce = 0;
-            // Can only fetch blockhashes for last 256 blocks so we adapt
+            nonce = 0;  // Can only fetch blockhashes for last 256 blocks so we adapt
         }
 
         return random;
@@ -427,12 +436,6 @@ contract FlightSuretyApp {
 }
 
 contract FlightSuretyData {
-    struct Profile {
-        string name;
-        bool isAirline;
-        bool acceptedByOtherAirlines;
-        bool hasPayedFund;
-    }
 
     function isAirline(address wallet) external returns (bool);
 
@@ -450,6 +453,11 @@ contract FlightSuretyData {
 
     function updateFlight(string flightName, uint256 flightTimestamp, address airline) external returns (bytes32);
 
-    function updateFlightStatus(string flightName, uint256 flightTimestamp, address airline, uint8 status);
+    function updateFlightStatus(string flightName, uint256 flightTimestamp, address airline, uint8 status) external;
 
+    function isFlightRegisterd(bytes32 key) external returns (bool);
+
+    function creditInsurees(address airline, string flight, uint256 timestamp, uint multiplier) external;
+
+    function isOperational() public view returns (bool);
 }

@@ -26,6 +26,8 @@ contract FlightSuretyData {
     address[] allAirlines = new address[](0);
     mapping(address => address[]) multipartyConsensusNewAirline;         // Mapping from a potential airline to airlines that gave consensus
     uint256 public constant MIN_FUND = 10 ether; //minimum fund required to participate in contract
+    mapping(address => Passenger) passengers;
+    mapping(bytes32 => address[]) passengersPerFlight;
 
     struct Flight {
         string name;
@@ -33,6 +35,12 @@ contract FlightSuretyData {
         uint8 statusCode;
         uint256 updatedTimestamp;
         address airline;
+    }
+
+    struct Passenger {
+        address wallet;
+        mapping(bytes32 => uint256) purchasedInsurance;
+        uint256 credits;
     }
 
     mapping(bytes32 => Flight) private flights;
@@ -156,6 +164,16 @@ contract FlightSuretyData {
         return allFlights;
     }
 
+    function getPassengerInsurance(address wallet, bytes32 key) external view returns (uint256 amount)
+    {
+        return passengers[wallet].purchasedInsurance[key];
+    }
+
+    function getPassengerCredit(address wallet) external view returns (uint256 amount)
+    {
+        return passengers[wallet].credits;
+    }
+
 
     function getNumberOfRegisteredAirlines
     (
@@ -210,16 +228,20 @@ contract FlightSuretyData {
 
     }
 
+    function isFlightRegisterd(bytes32 key) external view returns (bool){
+        return flights[key].isRegistered;
+    }
+
     function updateFlight(string flightName, uint256 flightTimestamp, address airline)
     external returns (bytes32) {
         bytes32 key = keccak256(abi.encodePacked(airline, flightName, flightTimestamp));
         require(!flights[key].isRegistered, "Flight already registered");
         flights[key] = Flight({
-            name : flightName,
-            isRegistered : true,
-            statusCode : 0,
-            updatedTimestamp : flightTimestamp,
-            airline : airline
+        name : flightName,
+        isRegistered : true,
+        statusCode : 0,
+        updatedTimestamp : flightTimestamp,
+        airline : airline
         });
         flightList.push(key);
         return key;
@@ -283,13 +305,26 @@ contract FlightSuretyData {
      * @dev Buy insurance for a flight
     *
     */
-    function buy
-    (
-    )
+    function buy(address airline, string flight, uint256 timestamp)
     external
     payable
     {
+        bytes32 key = keccak256(abi.encodePacked(airline, flight, timestamp));
 
+        address wallet = msg.sender;
+
+        if (passengers[wallet].wallet == address(0)) {
+            passengers[wallet] = Passenger({
+            wallet : wallet,
+            credits : 0
+            });
+        }
+        if (passengers[wallet].purchasedInsurance[key] == 0) {
+            passengers[wallet].purchasedInsurance[key] = msg.value;
+            passengersPerFlight[key].push(wallet);
+        } else {
+            require(false, "Insurance already bought for flight");
+        }
     }
 
     /**
@@ -297,10 +332,20 @@ contract FlightSuretyData {
     */
     function creditInsurees
     (
+        address airline, string flight, uint256 timestamp,
+        uint multiplier
     )
     external
-    pure
     {
+        bytes32 key = keccak256(abi.encodePacked(airline, flight, timestamp));
+        address[] passengerListFlight = passengersPerFlight[key];
+        for (uint i = 0; i < passengerListFlight.length; i++) {
+            address insuree = passengerListFlight[i];
+            uint256 payoutAmound = passengers[insuree].purchasedInsurance[key].mul(3).div(2);
+            passengers[insuree].purchasedInsurance[key] = 0;
+            passengers[insuree].credits = passengers[insuree].credits + payoutAmound;
+        }
+        delete passengersPerFlight[key];
     }
 
 
@@ -312,8 +357,10 @@ contract FlightSuretyData {
     (
     )
     external
-    pure
     {
+        uint256 amount = passengers[msg.sender].credits;
+        passengers[msg.sender].credits = 0;
+        msg.sender.transfer(amount);
     }
 
     /**
@@ -332,11 +379,11 @@ contract FlightSuretyData {
     function getFlightKey
     (
         address airline,
-        string memory flight,
+        string flight,
         uint256 timestamp
     )
     pure
-    internal
+    external
     returns (bytes32)
     {
         return keccak256(abi.encodePacked(airline, flight, timestamp));
